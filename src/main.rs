@@ -1,6 +1,9 @@
-use std::{path::PathBuf, time::Duration};
+use core::time;
+use std::{path::PathBuf, time::Duration, thread};
 
 use clap::Parser;
+mod stlink;
+
 
 /// A tool to flash chinese ST-link dongles
 /// Application is started when called without argument or after firmware load
@@ -14,13 +17,6 @@ struct Args {
     file: Option<PathBuf>,
 }
 
-// const STLINK_VID: u16 = 0x0483;
-// const STLINK_PID: u16 = 0x3748;
-// const STLINK_PIDV21: u16 = 0x374b;
-// const STLINK_PIDV21_MSD: u16 = 0x3752;
-// const STLINK_PIDV3_MSD: u16 = 0x374e;
-// const STLINK_PIDV3: u16 = 0x374f;
-// const STLINK_PIDV3_BL: u16 = 0x374d;
 
 const OPENMOKO_VID: u16 = 0x1d50;
 const BMP_APPL_PID: u16 = 0x6018;
@@ -30,6 +26,24 @@ const BMP_DFU_IF: u8 = 4;
 fn main() {
     // let args = Args::parse();
 
+    if find_and_reboot_black_magic_probes() > 0 {
+        thread::sleep(time::Duration::from_secs(2));
+    }
+
+    let devices = stlink::find_devices();
+    if devices.is_empty() {
+        println!("No ST-LINK in DFU mode found. Replug ST-Link to flash");
+        std::process::exit(1);
+    }
+
+    for device in devices.iter() {
+        device.print_info();
+    }
+}
+
+
+fn find_and_reboot_black_magic_probes() -> isize {
+    let mut count: isize = 0;
     for device in rusb::devices().unwrap().iter() {
         let device_desc = device.device_descriptor().unwrap();
 
@@ -44,13 +58,16 @@ fn main() {
                         rusb::constants::LIBUSB_ENDPOINT_OUT | rusb::constants::LIBUSB_REQUEST_TYPE_CLASS | rusb::constants::LIBUSB_RECIPIENT_INTERFACE,
                         0, /*DFU_DETACH,*/
                         1000,
-                        BMP_DFU_IF as u16,
+                        u16::from(BMP_DFU_IF),
                         &buf,
                         Duration::from_millis(5000)).unwrap();
-                    handle.release_interface(0).unwrap();
+                    handle.release_interface(BMP_DFU_IF).unwrap();
+                    count += 1;
                 },
                 Err(error) => println!("... Failed with error: {error}"),
             }
         }
     }
+    count
+
 }
