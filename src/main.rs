@@ -12,7 +12,7 @@ mod stlink;
 struct Args {
     /// Probe the ST-Link adapter
     #[clap(short, long)]
-    probe: Option<bool>,
+    probe: bool,
 
     file: Option<PathBuf>,
 }
@@ -24,7 +24,7 @@ const BMP_APPL_PID: u16 = 0x6018;
 const BMP_DFU_IF: u8 = 4;
 
 fn main() {
-    // let args = Args::parse();
+    let args = Args::parse();
 
     if find_and_reboot_black_magic_probes() > 0 {
         thread::sleep(time::Duration::from_secs(2));
@@ -39,6 +39,14 @@ fn main() {
     for device in devices.iter() {
         device.print_info();
         device.get_current_mode();
+
+        if let Some(file) = args.file.clone() {
+            device.flash(file);
+        }
+
+    }
+
+    if !args.probe {
 
     }
 }

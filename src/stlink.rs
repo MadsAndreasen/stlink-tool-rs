@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::{time::Duration, fs};
 use rusb::{GlobalContext};
 
 use aes::cipher::{block_padding::Pkcs7,BlockEncryptMut, KeyInit, generic_array};
+
 type Aes128EcbEnc = ecb::Encryptor<aes::Aes128>;
 
 const STLINK_VID: u16 = 0x0483;
@@ -124,12 +125,67 @@ impl STLink {
                 }
                 let mode = u16::from(data[0]) << 8 | u16::from(data[1]);
                 println!("Current mode : {mode}");
+                handle.release_interface(0);
                 mode
             },
             Err(error) => panic!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
         }
     }
 
+    pub(crate) fn flash(&self, file: std::path::PathBuf) {
+        const CHUNK_SIZE: usize = 1 << 10;
+        const BASE_OFFSET: u32 = 0x08004000;
+        let contents = fs::read(file).expect("Problem accessing {file}");
+        let mut address = BASE_OFFSET;
+        for chunk in contents.chunks(CHUNK_SIZE) {
+            self.erase(address);
+        }
+        todo!("set address");
+        todo!("dfu_download");
+    }
+
+    fn dfu_download(&self, data: &[u8]) -> Result<(), &'static String> {
+        match self.device.open() {
+            Ok(mut handle) => {
+                println!("StlinkV21 Bootloader found");
+                let command = [0xF5];
+                handle.claim_interface(0).unwrap();
+
+                const DFU_DOWNLOAD: u8 = 0x01;
+                let block_num: u16 = 0;
+                let data_len: u16 = data.len().try_into().unwrap();
+                let mut download_request: [u8; 16] = Default::default();
+                download_request[0] = ST_DFU_MAGIC;
+                download_request[1] = DFU_DOWNLOAD;
+
+                download_request[2..4].clone_from_slice(block_num.to_le_bytes().as_slice());
+                download_request[4..6].clone_from_slice(checksum(data).to_le_bytes().as_slice());
+                download_request[6..8].clone_from_slice(data_len.to_le_bytes().as_slice());
+
+                if let Err(error) = handle.write_bulk(STLink::ENDPOINT_OUT, &download_request, USB_TIMEOUT) {
+                    println!("dfu transfer failure {error}");
+                }
+                todo!()
+            },
+            Err(error) => panic!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        }
+    }
+
+    fn erase(&self, address: u32) -> Result<(), &'static String> {
+        const ERASE_SECTOR_CMD: u8 = 0x42;
+        let mut command: Vec<u8> = Vec::with_capacity(5);
+        command.push(ERASE_SECTOR_CMD);
+        command.extend(address.to_le_bytes());
+        self.dfu_download(&command)?;
+        Ok(())
+    }
+
+}
+
+
+fn checksum(data: &[u8]) -> u16 {
+    let sum: u32 = data.iter().map(|&i| i as u32).sum();
+    sum as u16
 }
 
 pub fn find_devices() -> Vec<STLink> {
