@@ -102,10 +102,34 @@ impl STLink {
                 }
                 println!();
 
+                handle.release_interface(0);
+
             }
             Err(error) => println!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
         }
     }
+
+    pub(crate) fn get_current_mode(&self) -> u16 {
+        match self.device.open() {
+            Ok(mut handle) => {
+                println!("StlinkV21 Bootloader found");
+                let command = [0xF5];
+                handle.claim_interface(0).unwrap();
+                if let Err(error) = handle.write_bulk(STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+                    println!(" stlink_read_info out transfer failure {error}");
+                }
+                let mut data: [u8; 20] = Default::default();
+                if let Err(error) = handle.read_bulk(STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+                    println!(" stlink_read_info out transfer failure {error}");
+                }
+                let mode = u16::from(data[0]) << 8 | u16::from(data[1]);
+                println!("Current mode : {mode}");
+                mode
+            },
+            Err(error) => panic!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        }
+    }
+
 }
 
 pub fn find_devices() -> Vec<STLink> {

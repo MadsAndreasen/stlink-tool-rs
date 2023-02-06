@@ -38,6 +38,8 @@ fn main() {
 
     for device in devices.iter() {
         device.print_info();
+        device.get_current_mode();
+
     }
 }
 
