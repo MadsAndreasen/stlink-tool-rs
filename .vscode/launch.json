@@ -8,6 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug executable 'stlink-tool-rs'",
+            "env": {"RUST_BACKTRACE": "1"},
             "cargo": {
                 "args": [
                     "build",
@@ -19,7 +20,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["blackmagic.bin"],
             "cwd": "${workspaceFolder}"
         },
         {

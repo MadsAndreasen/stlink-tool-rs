@@ -12,7 +12,7 @@ mod stlink;
 struct Args {
     /// Probe the ST-Link adapter
     #[clap(short, long)]
-    probe: Option<bool>,
+    probe: bool,
 
     file: Option<PathBuf>,
 }
@@ -24,21 +24,29 @@ const BMP_APPL_PID: u16 = 0x6018;
 const BMP_DFU_IF: u8 = 4;
 
 fn main() {
-    // let args = Args::parse();
+    let args = Args::parse();
 
     if find_and_reboot_black_magic_probes() > 0 {
         thread::sleep(time::Duration::from_secs(2));
     }
 
-    let devices = stlink::find_devices();
+    let mut devices = stlink::find_devices();
     if devices.is_empty() {
         println!("No ST-LINK in DFU mode found. Replug ST-Link to flash");
         std::process::exit(1);
     }
 
-    for device in devices.iter() {
+    for device in devices.iter_mut() {
         device.print_info();
         device.get_current_mode();
+
+        if let Some(file) = args.file.clone() {
+            device.flash(file);
+        }
+
+    }
+
+    if !args.probe {
 
     }
 }
