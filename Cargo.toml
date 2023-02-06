@@ -15,3 +15,5 @@ keywords = ["serialport", "embedded", "terminal", "serial"]
 [dependencies]
 clap = {version = "4.1.4", features = ["derive"]}
 rusb = "0.9.1"
+ecb = { version = "0.1.1", features = ["alloc"]}
+aes = "0.8.2"

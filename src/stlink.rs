@@ -1,6 +1,8 @@
 use std::time::Duration;
-
 use rusb::{GlobalContext};
+
+use aes::cipher::{block_padding::Pkcs7,BlockEncryptMut, KeyInit, generic_array};
+type Aes128EcbEnc = ecb::Encryptor<aes::Aes128>;
 
 const STLINK_VID: u16 = 0x0483;
 const STLINK_PID: u16 = 0x3748;
@@ -68,6 +70,38 @@ impl STLink {
                     }
                 }
                 println!();
+
+                let firmware_key= [&reply[..4], &reply[8..]].concat();
+                let mut firmware_key_be = Vec::<u8>::new();
+
+                for chunk in firmware_key.chunks(4) {
+                    let i = u32::from_le_bytes(chunk.try_into().unwrap());
+                    firmware_key_be.extend_from_slice(&i.to_be_bytes());
+                }
+
+                let key = "I am key, wawawa".as_bytes();
+                let mut key_be = Vec::<u8>::new();
+                for chunk in key.chunks(4) {
+                    let i = u32::from_le_bytes(chunk.try_into().unwrap());
+                    key_be.extend_from_slice(&i.to_be_bytes());
+                }
+
+                let key_as_array =  generic_array::GenericArray::from_slice(key_be.as_slice());
+                let enc = Aes128EcbEnc::new(key_as_array);
+
+                let encrypted = enc.encrypt_padded_vec_mut::<Pkcs7>(&firmware_key_be);
+                let mut encrypted_be = Vec::<u8>::new();
+                for chunk in encrypted[..firmware_key_be.len()].chunks(4) {
+                    let i = u32::from_le_bytes(chunk.try_into().unwrap());
+                    encrypted_be.extend_from_slice(&i.to_be_bytes());
+                }
+
+                print!("Firmware encryption key : ");
+                for digit in encrypted_be {
+                    print!("{digit:02X}");
+                }
+                println!();
+
             }
             Err(error) => println!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
         }
