@@ -4,6 +4,8 @@ use std::{path::PathBuf, time::Duration, thread};
 use clap::Parser;
 mod stlink;
 
+#[macro_use]
+extern crate log;
 
 /// A tool to flash chinese ST-link dongles
 /// Application is started when called without argument or after firmware load
@@ -24,6 +26,8 @@ const BMP_APPL_PID: u16 = 0x6018;
 const BMP_DFU_IF: u8 = 4;
 
 fn main() {
+    env_logger::init();
+
     let args = Args::parse();
 
     if find_and_reboot_black_magic_probes() > 0 {

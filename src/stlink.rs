@@ -1,4 +1,4 @@
-use std::{time::Duration, fs, thread, io::{self, Write}};
+use std::{time::Duration, fs, thread, io::{self, Write}, string::String};
 use num_enum::{TryFromPrimitive, IntoPrimitive};
 use rusb::{GlobalContext, DeviceHandle};
 use std::convert::TryFrom;
@@ -48,11 +48,11 @@ impl STLink {
                 println!("StlinkV21 Bootloader found");
                 let command: [u8; 2] = [ST_DFU_INFO, 0x80];
                 handle.claim_interface(0).unwrap();
-                if let Err(error) = my_write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let mut data: [u8; 20] = Default::default();
-                if let Err(error) = my_read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let stlink_version = data[0] >> 4;
@@ -66,11 +66,11 @@ impl STLink {
                 println!("Loader version : {loader_version}");
 
                 let command: [u8; 2] = [ST_DFU_MAGIC, 0x08];
-                if let Err(error) = my_write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let mut reply: [u8; 20] = Default::default();
-                if let Err(error) = my_read_bulk(&handle,STLink::ENDPOINT_IN, &mut reply, USB_TIMEOUT) {
+                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut reply, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let id = &reply[8..];
@@ -131,11 +131,11 @@ impl STLink {
             Ok(mut handle) => {
                 let command = [0xF5];
                 handle.claim_interface(0).unwrap();
-                if let Err(error) = my_write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let mut data: [u8; 20] = Default::default();
-                if let Err(error) = my_read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
                 let mode = u16::from(data[0]) << 8 | u16::from(data[1]);
@@ -162,6 +162,7 @@ impl STLink {
             io::stdout().flush().unwrap();
             address += chunk.len() as u32;
         }
+        println!();
     }
 
     fn dfu_download(&self, data: &[u8], download_type: &DownloadType) -> Result<(), String> {
@@ -179,7 +180,7 @@ impl STLink {
                 download_request[4..6].clone_from_slice(checksum(data).to_le_bytes().as_slice());
                 download_request[6..8].clone_from_slice(data_len.to_le_bytes().as_slice());
 
-                if let Err(error) = my_write_bulk(&handle,STLink::ENDPOINT_OUT, &download_request, USB_TIMEOUT) {
+                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &download_request, USB_TIMEOUT) {
                     return Err(format!("dfu request transfer failure {error}"));
                 }
 
@@ -188,7 +189,7 @@ impl STLink {
                     _ => data.to_vec()
 
                 };
-                if let Err(error) = my_write_bulk(&handle,STLink::ENDPOINT_OUT, &encrypted_data, USB_TIMEOUT) {
+                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &encrypted_data, USB_TIMEOUT) {
                     return Err(format!("dfu data transfer failure {error}"));
                 }
 
@@ -236,11 +237,11 @@ impl STLink {
     fn dfu_status(&self, handle: &DeviceHandle<GlobalContext> ) -> Result<DFUStatus, rusb::Error> {
         const DFU_GET_STATUS: u8 = 0x03;
         let command = [ST_DFU_MAGIC, DFU_GET_STATUS, 0, 0, 0, 0, 0x06];
-        if let Err(error) = my_write_bulk(handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+        if let Err(error) = write_bulk(handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
             println!(" stlink_read_info out transfer failure {error}");
         }
         let mut data: [u8; 20] = Default::default();
-        if let Err(error) = my_read_bulk(handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+        if let Err(error) = read_bulk(handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
             println!(" stlink_read_info out transfer failure {error}");
         }
 
@@ -315,7 +316,6 @@ fn checksum(data: &[u8]) -> u16 {
     let mut sum: i32 =  0;
     for i in data {
         sum += *i as i32;
-        println!("{sum}");
     }
     sum &= 0xFFFF;
     sum as u16
@@ -332,20 +332,23 @@ pub fn find_devices() -> Vec<STLink> {
     ret_val
 }
 
-fn my_write_bulk(handle: &DeviceHandle<GlobalContext>, endpoint: u8, command: &[u8], timeout: Duration ) -> Result<usize, rusb::Error> {
-    print!(">");
-    for digit in command {
-        print!("{digit:02X}");
-    }
-    println!();
+fn write_bulk(handle: &DeviceHandle<GlobalContext>, endpoint: u8, command: &[u8], timeout: Duration ) -> Result<usize, rusb::Error> {
+    let log_str = bytes_as_hex(command);
+    debug!("> {log_str}");
     handle.write_bulk(endpoint, command, timeout)
 }
 
-fn my_read_bulk(handle: &DeviceHandle<GlobalContext>, endpoint: u8, data: &mut [u8], timeout: Duration) -> Result<usize, rusb::Error> {
-    print!("<");
-    data.iter().for_each(|digit| {
-        print!("{digit:02X}");
-    });
-    println!();
-    handle.read_bulk(endpoint, data, timeout)
+fn bytes_as_hex(bytes: &[u8]) -> String {
+    let mut as_string = String::from("");
+    for digit in bytes {
+        as_string += &format!("{digit:02X}");
+    }
+    as_string
+}
+
+fn read_bulk(handle: &DeviceHandle<GlobalContext>, endpoint: u8, data: &mut [u8], timeout: Duration) -> Result<usize, rusb::Error> {
+    let result = handle.read_bulk(endpoint, data, timeout);
+    let log_str = bytes_as_hex(data);
+    debug!("< {log_str}");
+    result
 }
