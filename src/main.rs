@@ -48,6 +48,10 @@ fn main() {
             device.flash(file);
         }
 
+        if !args.probe {
+            device.exit_dfu();
+        }
+
     }
 
     if !args.probe {

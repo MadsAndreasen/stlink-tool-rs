@@ -20,7 +20,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["blackmagic.bin"],
+            "args": ["-p", "blackmagic.bin"],
             "cwd": "${workspaceFolder}"
         },
         {
