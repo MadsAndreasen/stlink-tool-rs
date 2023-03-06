@@ -52,7 +52,7 @@ impl STLink {
             Ok(mut handle) => {
                 println!("StlinkV21 Bootloader found");
                 let command: [u8; 2] = [ST_DFU_INFO, 0x80];
-                handle.claim_interface(0).unwrap();
+                handle.claim_interface(0);
                 if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
@@ -149,7 +149,7 @@ impl STLink {
         match self.device.open() {
             Ok(mut handle) => {
                 let command = [0xF5];
-                handle.claim_interface(0).unwrap();
+                handle.claim_interface(0);
                 if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
                     println!(" stlink_read_info out transfer failure {error}");
                 }
@@ -187,7 +187,7 @@ impl STLink {
     fn dfu_download(&self, data: &[u8], download_type: &DownloadType) -> Result<(), String> {
         match self.device.open() {
             Ok(mut handle) => {
-                handle.claim_interface(0).unwrap();
+                handle.claim_interface(0);
 
                 const DFU_DOWNLOAD: u8 = 0x01;
                 let data_len: u16 = data.len().try_into().unwrap();
