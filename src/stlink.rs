@@ -14,11 +14,6 @@ type Aes128EcbEnc = ecb::Encryptor<aes::Aes128>;
 
 const STLINK_VID: u16 = 0x0483;
 const STLINK_PID: u16 = 0x3748;
-// const STLINK_PIDV21: u16 = 0x374b;
-// const STLINK_PIDV21_MSD: u16 = 0x3752;
-// const STLINK_PIDV3_MSD: u16 = 0x374e;
-// const STLINK_PIDV3: u16 = 0x374f;
-// const STLINK_PIDV3_BL: u16 = 0x374d;
 
 const ST_DFU_INFO: u8 = 0xF1;
 const ST_DFU_MAGIC: u8 = 0xF3;
@@ -47,61 +42,60 @@ impl STLink {
         }
     }
 
+    fn open_and_claim(&self) -> DeviceHandle<GlobalContext>
+    {
+        let mut result = self.device.open().expect("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle");
+        result.claim_interface(0).expect("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}");
+        result
+    }
+
     pub(crate) fn print_info(&mut self) {
-        match self.device.open() {
-            Ok(mut handle) => {
-                println!("StlinkV21 Bootloader found");
-                let command: [u8; 2] = [ST_DFU_INFO, 0x80];
-                handle.claim_interface(0);
-                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let mut data: [u8; 20] = Default::default();
-                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let stlink_version = data[0] >> 4;
-                if stlink_version >= 3 {
-                    panic!("St linkversion  greater or equal to 3 - Not supported");
-                }
-                let jtag_version = (data[0] & 0x0F) << 2 | (data[1] & 0xC0) >> 6;
-                let swim_version = data[1] & 0x3F;
-                let loader_version = u16::from(data[5]) << 8 | u16::from(data[4]);
-                println!("Firmware version : V{stlink_version}J{jtag_version}S{swim_version}");
-                println!("Loader version : {loader_version}");
-
-                let command: [u8; 2] = [ST_DFU_MAGIC, 0x08];
-                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let mut reply: [u8; 20] = Default::default();
-                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut reply, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let id = &reply[8..];
-                print!("ST-Link ID : ");
-                for chunk in id.chunks(4) {
-                    for digit in chunk.iter().rev() {
-                        print!("{digit:02X}");
-                    }
-                }
-                println!();
-
-                let firmware_key= [&reply[..4], &reply[8..]].concat();
-                let key = "I am key, wawawa".as_bytes();
-                self.encryption_key = self.encrypt(key, firmware_key.as_slice());
-
-                print!("Firmware encryption key : ");
-                for digit in self.encryption_key.iter() {
-                    print!("{digit:02X}");
-                }
-                println!();
-
-                handle.release_interface(0);
-
-            }
-            Err(error) => println!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        let handle = self.open_and_claim();
+        println!("StlinkV21 Bootloader found");
+        let command: [u8; 2] = [ST_DFU_INFO, 0x80];
+        if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
         }
+        let mut data: [u8; 20] = Default::default();
+        if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
+        }
+        let stlink_version = data[0] >> 4;
+        if stlink_version >= 3 {
+            panic!("St linkversion  greater or equal to 3 - Not supported");
+        }
+        let jtag_version = (data[0] & 0x0F) << 2 | (data[1] & 0xC0) >> 6;
+        let swim_version = data[1] & 0x3F;
+        let loader_version = u16::from(data[5]) << 8 | u16::from(data[4]);
+        println!("Firmware version : V{stlink_version}J{jtag_version}S{swim_version}");
+        println!("Loader version : {loader_version}");
+
+        let command: [u8; 2] = [ST_DFU_MAGIC, 0x08];
+        if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
+        }
+        let mut reply: [u8; 20] = Default::default();
+        if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut reply, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
+        }
+        let id = &reply[8..];
+        print!("ST-Link ID : ");
+        for chunk in id.chunks(4) {
+            for digit in chunk.iter().rev() {
+                print!("{digit:02X}");
+            }
+        }
+        println!();
+
+        let firmware_key= [&reply[..4], &reply[8..]].concat();
+        let key = "I am key, wawawa".as_bytes();
+        self.encryption_key = self.encrypt(key, firmware_key.as_slice());
+
+        print!("Firmware encryption key : ");
+        for digit in self.encryption_key.iter() {
+            print!("{digit:02X}");
+        }
+        println!();
     }
 
     fn encrypt(&self, key: &[u8], data: &[u8]) -> Vec<u8> {
@@ -132,38 +126,28 @@ impl STLink {
     }
 
     pub(crate) fn exit_dfu(&self) {
-        match self.device.open() {
-            Ok(handle) => {
-                const ST_DFU_EXIT: u8 = 0x07;
-                let command: [u8; 2] = [ST_DFU_MAGIC, ST_DFU_EXIT];
-                if let Err(error) = write_bulk(&handle, STLink::ENDPOINT_OUT, &command, USB_TIMEOUT)
-                {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-            }
-            Err(error) => println!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        let handle = self.open_and_claim();
+        const ST_DFU_EXIT: u8 = 0x07;
+        let command: [u8; 2] = [ST_DFU_MAGIC, ST_DFU_EXIT];
+        if let Err(error) = write_bulk(&handle, STLink::ENDPOINT_OUT, &command, USB_TIMEOUT)
+        {
+            println!(" stlink_read_info out transfer failure {error}");
         }
     }
 
     pub(crate) fn get_current_mode(&self) -> u16 {
-        match self.device.open() {
-            Ok(mut handle) => {
-                let command = [0xF5];
-                handle.claim_interface(0);
-                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let mut data: [u8; 20] = Default::default();
-                if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
-                    println!(" stlink_read_info out transfer failure {error}");
-                }
-                let mode = u16::from(data[0]) << 8 | u16::from(data[1]);
-                println!("Current mode : {mode}");
-                handle.release_interface(0);
-                mode
-            },
-            Err(error) => panic!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        let handle = self.open_and_claim();
+        let command = [0xF5];
+        if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &command, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
         }
+        let mut data: [u8; 20] = Default::default();
+        if let Err(error) = read_bulk(&handle,STLink::ENDPOINT_IN, &mut data, USB_TIMEOUT) {
+            println!(" stlink_read_info out transfer failure {error}");
+        }
+        let mode = u16::from(data[0]) << 8 | u16::from(data[1]);
+        println!("Current mode : {mode}");
+        mode
     }
 
     pub(crate) fn flash(&self, file: std::path::PathBuf) {
@@ -172,11 +156,10 @@ impl STLink {
         let contents = fs::read(file).expect("Problem accessing {file}");
         let mut address = BASE_OFFSET;
         for chunk in contents.chunks(CHUNK_SIZE) {
-            self.erase(address);
-            self.set_address(address);
-            if let Err(error) = self.dfu_download(chunk, &DownloadType::Data) {
-                println!("{error:?}");
-            }
+            self.erase(address)
+            .and(self.set_address(address))
+            .and(self.dfu_download(chunk, &DownloadType::Data))
+            .unwrap();
             print!(".");
             io::stdout().flush().unwrap();
             address += chunk.len() as u32;
@@ -185,63 +168,57 @@ impl STLink {
     }
 
     fn dfu_download(&self, data: &[u8], download_type: &DownloadType) -> Result<(), String> {
-        match self.device.open() {
-            Ok(mut handle) => {
-                handle.claim_interface(0);
+        let handle = self.open_and_claim();
+        const DFU_DOWNLOAD: u8 = 0x01;
+        let data_len: u16 = data.len().try_into().unwrap();
+        let mut download_request: [u8; 16] = Default::default();
+        download_request[0] = ST_DFU_MAGIC;
+        download_request[1] = DFU_DOWNLOAD;
 
-                const DFU_DOWNLOAD: u8 = 0x01;
-                let data_len: u16 = data.len().try_into().unwrap();
-                let mut download_request: [u8; 16] = Default::default();
-                download_request[0] = ST_DFU_MAGIC;
-                download_request[1] = DFU_DOWNLOAD;
+        download_request[2..4].clone_from_slice(u16::from(*download_type).to_le_bytes().as_slice());
+        download_request[4..6].clone_from_slice(checksum(data).to_le_bytes().as_slice());
+        download_request[6..8].clone_from_slice(data_len.to_le_bytes().as_slice());
 
-                download_request[2..4].clone_from_slice(u16::from(*download_type).to_le_bytes().as_slice());
-                download_request[4..6].clone_from_slice(checksum(data).to_le_bytes().as_slice());
-                download_request[6..8].clone_from_slice(data_len.to_le_bytes().as_slice());
-
-                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &download_request, USB_TIMEOUT) {
-                    return Err(format!("dfu request transfer failure {error}"));
-                }
-
-                let encrypted_data = match download_type {
-                    DownloadType::Data => self.encrypt(&self.encryption_key, data),
-                    _ => data.to_vec()
-
-                };
-                if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &encrypted_data, USB_TIMEOUT) {
-                    return Err(format!("dfu data transfer failure {error}"));
-                }
-
-                match self.dfu_status(&handle) {
-                    Err(error) => {
-                        return Err(format!("dfu status failure {error}"));
-                    }
-                    Ok(status) => {
-                        if status.state != DeviceState::DfuDnbusy || status.status != DeviceStatus::Ok {
-                            return Err("Unexpected DFU status".to_string());
-                        }
-                        thread::sleep(status.poll_timeout);
-                    },
-                }
-
-                match self.dfu_status(&handle) {
-                    Ok(status) => {
-                        if status.state != DeviceState::DfuDnloadIdle {
-                            if status.status == DeviceStatus::ErrVendor {
-                                return Err("Read-only protection active".to_string());
-                            } else if status.status == DeviceStatus::ErrTarget {
-                                return Err("Invalid address error".to_string());
-                            } else {
-                                return Err(format!("Unknown error : {:?}", status.status));
-                            }
-                        }
-                    },
-                    Err(error) => return Err(format!("dfu status failure {error}")),
-                }
-                Ok(())
-            },
-            Err(error) => panic!("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}"),
+        if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &download_request, USB_TIMEOUT) {
+            return Err(format!("dfu request transfer failure {error}"));
         }
+
+        let encrypted_data = match download_type {
+            DownloadType::Data => self.encrypt(&self.encryption_key, data),
+            _ => data.to_vec()
+
+        };
+        if let Err(error) = write_bulk(&handle,STLink::ENDPOINT_OUT, &encrypted_data, USB_TIMEOUT) {
+            return Err(format!("dfu data transfer failure {error}"));
+        }
+
+        match self.dfu_status(&handle) {
+            Err(error) => {
+                return Err(format!("dfu status failure {error}"));
+            }
+            Ok(status) => {
+                if status.state != DeviceState::DfuDnbusy || status.status != DeviceStatus::Ok {
+                    return Err("Unexpected DFU status".to_string());
+                }
+                thread::sleep(status.poll_timeout);
+            },
+        }
+
+        match self.dfu_status(&handle) {
+            Ok(status) => {
+                if status.state != DeviceState::DfuDnloadIdle {
+                    if status.status == DeviceStatus::ErrVendor {
+                        return Err("Read-only protection active".to_string());
+                    } else if status.status == DeviceStatus::ErrTarget {
+                        return Err("Invalid address error".to_string());
+                    } else {
+                        return Err(format!("Unknown error : {:?}", status.status));
+                    }
+                }
+            },
+            Err(error) => return Err(format!("dfu status failure {error}")),
+        }
+        Ok(())
     }
 
     fn erase(&self, address: u32) -> Result<(), String> {
