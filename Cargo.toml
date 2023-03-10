@@ -20,3 +20,10 @@ aes = "0.8.2"
 num_enum = "0.5.11"
 env_logger = "0.10.0"
 log = "0.4.17"
+
+[package.metadata.deb]
+assets = [
+    ["target/release/stlink-tool-rs", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/cargo-deb/README", "644"],
+    ["assets/98-stlink-rs.rules", "/etc/udev/rules.d/98-stlink-rs.rules", "644"]
+]
