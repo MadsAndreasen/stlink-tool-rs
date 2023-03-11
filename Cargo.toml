@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "A tool to flash chinese ST-link dongles"
-homepage = "https://github.com/MadsAndreasen/rs-com"
+homepage = "https://github.com/MadsAndreasen/stlink-tool-rs"
 readme = "README.md"
 authors = ["Mads Andreasen <github@andreasen.cc>"]
-keywords = ["serialport", "embedded", "terminal", "serial"]
+keywords = ["stlink", "embedded", "debug", "jtag", "swd", "black magic probe", "bmp"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
