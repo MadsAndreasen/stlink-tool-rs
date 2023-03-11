@@ -7,7 +7,7 @@ description = "A tool to flash chinese ST-link dongles"
 homepage = "https://github.com/MadsAndreasen/stlink-tool-rs"
 readme = "README.md"
 authors = ["Mads Andreasen <github@andreasen.cc>"]
-keywords = ["stlink", "embedded", "debug", "jtag", "swd", "black magic probe", "bmp"]
+keywords = ["stlink", "embedded", "debug", "swd", "black-magic-probe"]
 
 [package.metadata.deb]
 assets = [
