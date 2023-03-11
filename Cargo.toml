@@ -1,6 +1,6 @@
 [package]
 name = "stlink-tool-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "A tool to flash chinese ST-link dongles"
@@ -8,6 +8,13 @@ homepage = "https://github.com/MadsAndreasen/stlink-tool-rs"
 readme = "README.md"
 authors = ["Mads Andreasen <github@andreasen.cc>"]
 keywords = ["stlink", "embedded", "debug", "jtag", "swd", "black magic probe", "bmp"]
+
+[package.metadata.deb]
+assets = [
+    ["target/release/stlink-tool-rs", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/cargo-deb/README", "644"],
+    ["assets/98-stlink-rs.rules", "/etc/udev/rules.d/98-stlink-rs.rules", "644"]
+]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,10 +27,3 @@ aes = "0.8.2"
 num_enum = "0.5.11"
 env_logger = "0.10.0"
 log = "0.4.17"
-
-[package.metadata.deb]
-assets = [
-    ["target/release/stlink-tool-rs", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/cargo-deb/README", "644"],
-    ["assets/98-stlink-rs.rules", "/etc/udev/rules.d/98-stlink-rs.rules", "644"]
-]
