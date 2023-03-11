@@ -45,7 +45,9 @@ impl STLink {
     fn open_and_claim(&self) -> DeviceHandle<GlobalContext>
     {
         let mut result = self.device.open().expect("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle");
+        info!("Opened USB device");
         result.claim_interface(0).expect("Unable to claim USB interface ! Please close all programs that may communicate with an ST-Link dongle - {error}");
+        info!("Claimed USB device");
         result
     }
 

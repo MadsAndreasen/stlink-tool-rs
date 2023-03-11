@@ -26,7 +26,9 @@ const BMP_APPL_PID: u16 = 0x6018;
 const BMP_DFU_IF: u8 = 4;
 
 fn main() {
-    env_logger::init();
+    // env_logger::init();
+    systemd_journal_logger::init().unwrap();
+    log::set_max_level(log::LevelFilter::Info);
 
     let args = Args::parse();
 
@@ -67,6 +69,7 @@ fn find_and_reboot_black_magic_probes() -> isize {
 
         if device_desc.vendor_id() == OPENMOKO_VID && device_desc.product_id() == BMP_APPL_PID {
             println!("Found BMP. Switching to bootloader");
+            info!("Found BMP. Switching to bootloader");
 
             match device.open() {
                 Ok(mut handle) => {
