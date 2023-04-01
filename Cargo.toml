@@ -21,7 +21,7 @@ assets = [
 
 [dependencies]
 clap = {version = "4.1.13", features = ["derive"]}
-rusb = "0.9.1"
+rusb = "0.9.2"
 ecb = { version = "0.1.1", features = ["alloc"]}
 aes = "0.8.2"
 num_enum = "0.5.11"
