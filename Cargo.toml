@@ -24,6 +24,6 @@ clap = {version = "4.4.13", features = ["derive"]}
 rusb = "0.9.3"
 ecb = { version = "0.1.2", features = ["alloc"]}
 aes = "0.8.2"
-num_enum = "0.7.1"
+num_enum = "0.7.2"
 env_logger = "0.10.1"
 log = "0.4.20"
