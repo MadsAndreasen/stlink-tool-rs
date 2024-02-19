@@ -23,7 +23,7 @@ assets = [
 clap = {version = "4.5.0", features = ["derive"]}
 rusb = "0.9.3"
 ecb = { version = "0.1.2", features = ["alloc"]}
-aes = "0.8.2"
+aes = "0.8.4"
 num_enum = "0.7.2"
 env_logger = "0.10.2"
 log = "0.4.20"
